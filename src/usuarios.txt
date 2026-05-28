@@ -1,0 +1,5 @@
+12345678910,jean,de la vega,jean@gmail.com,30,trabajo,0
+1027998021,kenner,lozano,kennerlozano@gmail.com,30,juan,0
+165392230923,jean,quinto,jean@gmail,30,trabajo,0
+11121314151617,liz,lizana,zolano@lozano,30,trabajo,0
+1112131415,kenner,lozano,kenner@gmail,30,trabajo,0
