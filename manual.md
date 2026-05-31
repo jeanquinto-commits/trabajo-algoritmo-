@@ -16,6 +16,7 @@ Al ejecutar el sistema, aparece el siguiente menú:
 3. Opción 1 — Registrar Usuario
 Registra un nuevo usuario en el sistema. El sistema solicita los siguientes datos en orden:
 <img width="851" height="332" alt="image" src="https://github.com/user-attachments/assets/c005d5ad-1c22-43c5-9ece-158ac1a5a1a7" />
+
 3.1 Validaciones de registro
 Se validan todos los campos antes de guardar. Si alguno falla, el registro se cancela y debe iniciarse de nuevo.
 <img width="874" height="648" alt="image" src="https://github.com/user-attachments/assets/221b211c-e12a-4145-ba96-2657ba8bd301" />
