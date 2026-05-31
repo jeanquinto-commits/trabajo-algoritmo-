@@ -10,7 +10,9 @@ Versión 2.0  •  2026
 1. Introducción
 LizJean Market & Loans es un sistema de consola para gestionar préstamos de artículos e inventario. Permite registrar usuarios, artículos, préstamos y devoluciones, y ofrece herramientas de consulta y administración.
 <img width="917" height="762" alt="image" src="https://github.com/user-attachments/assets/b9e49674-c77f-4211-9fa2-64b7437b50ad" />
+
 2. Menú Principal
+
 Al ejecutar el sistema, aparece el siguiente menú:
 <img width="883" height="405" alt="image" src="https://github.com/user-attachments/assets/bd22a2b0-d7a7-41d5-98e6-595d3bee7bb1" />
 3. Opción 1 — Registrar Usuario
