@@ -15,6 +15,28 @@ ADMINS = [
     {"usuario": "jean",   "clave": "industrial"}
 ]
 
+# ---------------------------------------------------------------------------
+# UTILIDADES DE LECTURA / ESCRITURA (corrigen \r\n y líneas corruptas)
+# ---------------------------------------------------------------------------
+
+def _leer_lineas(filepath):
+    """Lee un archivo y retorna lista de listas (campos por línea), ignorando vacías y \r."""
+    resultado = []
+    with open(filepath, "r", encoding="utf-8") as f:
+        for raw in f:
+            line = raw.rstrip("\r\n").strip()
+            if line:
+                resultado.append(line.split(","))
+    return resultado
+
+def _escribir_lineas(filepath, lista_de_campos):
+    """Escribe lista de listas al archivo con formato correcto (sin \r)."""
+    with open(filepath, "w", encoding="utf-8", newline="\n") as f:
+        for campos in lista_de_campos:
+            f.write(",".join(campos) + "\n")
+
+# ---------------------------------------------------------------------------
+
 def inicializar_sistema():
     if not os.path.exists(PATH):
         os.makedirs(PATH)
@@ -23,7 +45,7 @@ def inicializar_sistema():
             with open(f, "w", encoding="utf-8") as file:
                 pass
 
-# --- VALIDACIONES (mensajes detallados) ---
+# --- VALIDACIONES ---
 def validar_datos(nombre, apellido, doc, correo):
     if len(nombre) < 3:
         print(">> Error: El nombre debe tener minimo 3 caracteres.")
@@ -38,10 +60,14 @@ def validar_datos(nombre, apellido, doc, correo):
         print(">> Error: El apellido no puede contener numeros.")
         return False
     if not doc.isdigit() or not (3 <= len(doc) <= 15):
-        print(">> Error: El documento debe ser numérico y tener entre 3 y 15 digitos.")
+        print(">> Error: El documento debe ser numerico y tener entre 3 y 15 digitos.")
         return False
-    if "@" not in correo:
-        print(">> Error: El correo debe contener '@'.")
+    if "@" not in correo or correo.index("@") == 0 or correo.index("@") == len(correo) - 1:
+        print(">> Error: El correo debe tener formato valido (ej: usuario@dominio.com).")
+        return False
+    partes_correo = correo.split("@")
+    if len(partes_correo) != 2 or "." not in partes_correo[1]:
+        print(">> Error: El correo debe tener un dominio valido (ej: usuario@dominio.com).")
         return False
     return True
 
@@ -57,11 +83,10 @@ def registrar_usuario():
         return
 
     # Verificar documento duplicado
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            if line.strip() and line.strip().split(",")[0] == doc:
-                print(f">> Error: Ya existe un usuario con el documento {doc}.")
-                return
+    for campos in _leer_lineas(USERS_FILE):
+        if campos[0] == doc:
+            print(f">> Error: Ya existe un usuario con el documento {doc}.")
+            return
 
     edad_str = input("Edad: ").strip()
     if not edad_str.isdigit():
@@ -74,104 +99,96 @@ def registrar_usuario():
     else:
         info_extra = input("Nombre del acudiente: ").strip()
 
-    print("Plazos disponibles: 5, 10, 15, 30 días")
+    print("Plazos disponibles: 5, 10, 15, 30 dias")
     plazo = input("Seleccione plazo: ").strip()
     if plazo not in ["5", "10", "15", "30"]:
-        print(">> Error: Plazo inválido. Debe ser 5, 10, 15 o 30.")
+        print(">> Error: Plazo invalido. Debe ser 5, 10, 15 o 30.")
         return
 
-    with open(USERS_FILE, "a", encoding="utf-8") as f:
-        # formato: doc,nom,ape,mail,plazo,info_extra,vetado(0=no,1=si)
+    # Formato: doc,nom,ape,mail,plazo,info_extra,vetado(0=no,1=si)
+    with open(USERS_FILE, "a", encoding="utf-8", newline="\n") as f:
         f.write(f"{doc},{nom},{ape},{mail},{plazo},{info_extra},0\n")
-    print(f">> ¡Usuario '{nom} {ape}' registrado exitosamente!")
+    print(f">> Usuario '{nom} {ape}' registrado exitosamente!")
 
 # --- OPCIÓN 2: REGISTRAR ARTÍCULO ---
 def registrar_articulo():
-    print("\n--- Registrar Artículo ---")
-    art_id   = input("ID del artículo (ej: ART-001): ").strip()
-    nombre   = input("Nombre del artículo: ").strip()
-    categoria = input("Categoría: ").strip()
-    valor    = input("Valor estimado ($): ").strip()
+    print("\n--- Registrar Articulo ---")
+    art_id    = input("ID del articulo (ej: ART-001): ").strip()
+    nombre    = input("Nombre del articulo: ").strip()
+    categoria = input("Categoria: ").strip()
+    valor     = input("Valor estimado ($): ").strip()
 
     if not art_id or not nombre:
         print(">> Error: El ID y el nombre son obligatorios.")
         return
+    if not valor.isdigit():
+        print(">> Error: El valor debe ser un numero entero.")
+        return
 
     # Verificar ID duplicado
-    with open(ITEMS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            if line.strip() and line.strip().split(",")[0] == art_id:
-                print(f">> Error: Ya existe un artículo con el ID '{art_id}'.")
-                return
+    for campos in _leer_lineas(ITEMS_FILE):
+        if campos[0] == art_id:
+            print(f">> Error: Ya existe un articulo con el ID '{art_id}'.")
+            return
 
-    with open(ITEMS_FILE, "a", encoding="utf-8") as f:
-        # formato: id,nombre,categoria,valor,disponible(1=si,0=no)
+    # Formato: id,nombre,categoria,valor,disponible(1=si,0=no)
+    with open(ITEMS_FILE, "a", encoding="utf-8", newline="\n") as f:
         f.write(f"{art_id},{nombre},{categoria},{valor},1\n")
-    print(f">> ¡Artículo '{nombre}' registrado exitosamente en el inventario!")
+    print(f">> Articulo '{nombre}' registrado exitosamente en el inventario!")
 
 # --- OPCIÓN 3: REGISTRAR PRÉSTAMO ---
 def registrar_prestamo():
     print("\n--- Nuevo Prestamo ---")
     doc     = input("Documento del usuario: ").strip()
-    item_id = input("ID del artículo: ").strip()
+    item_id = input("ID del articulo: ").strip()
 
     # Verificar usuario
-    usuario_ok    = False
-    plazo_usuario = "15"
+    usuario_ok     = False
+    plazo_usuario  = "15"
     nombre_usuario = ""
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            partes = line.split(",")
-            if partes[0] == doc:
-                if len(partes) >= 7 and partes[6] == "1":
-                    print(">> Error: Este usuario está VETADO y no puede realizar prestamos.")
-                    return
-                usuario_ok     = True
-                nombre_usuario = f"{partes[1]} {partes[2]}"
-                plazo_usuario  = partes[4]
-                break
+    for campos in _leer_lineas(USERS_FILE):
+        if len(campos) >= 7 and campos[0] == doc:
+            if campos[6] == "1":
+                print(">> Error: Este usuario esta VETADO y no puede realizar prestamos.")
+                return
+            usuario_ok     = True
+            nombre_usuario = f"{campos[1]} {campos[2]}"
+            plazo_usuario  = campos[4]
+            break
 
     if not usuario_ok:
         print(f">> Error: No se encontro ningun usuario con el documento '{doc}'.")
         return
 
-    # Verificar artículo
+    # Verificar artículo — requiere exactamente 5 campos y disponible == "1"
     articulo_ok     = False
     nombre_articulo = ""
-    with open(ITEMS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            partes = line.split(",")
-            if partes[0] == item_id:
-                if len(partes) >= 5 and partes[4] == "0":
-                    print(f">> Error: El articulo '{partes[1]}' no está disponible.")
-                    return
-                articulo_ok     = True
-                nombre_articulo = partes[1]
-                break
+    for campos in _leer_lineas(ITEMS_FILE):
+        if len(campos) >= 5 and campos[0] == item_id:
+            if campos[4] != "1":
+                print(f">> Error: El articulo '{campos[1]}' no esta disponible.")
+                return
+            articulo_ok     = True
+            nombre_articulo = campos[1]
+            break
 
     if not articulo_ok:
         print(f">> Error: No se encontro ningun articulo con el ID '{item_id}'.")
         return
 
     print("\nCONTRATO DE RESPONSABILIDAD: Me comprometo a devolver el item en buen estado.")
-    acepta = input("¿Acepta el contrato? (S/N): ").strip().upper()
+    acepta = input("Acepta el contrato? (S/N): ").strip().upper()
 
     if acepta == "S":
         fecha      = datetime.now().strftime("%Y-%m-%d")
         fecha_venc = (datetime.now() + timedelta(days=int(plazo_usuario))).strftime("%Y-%m-%d")
-        with open(LOANS_FILE, "a", encoding="utf-8") as f:
-            # formato: doc,item_id,fecha_inicio,fecha_vencimiento,estado
+        with open(LOANS_FILE, "a", encoding="utf-8", newline="\n") as f:
+            # Formato: doc,item_id,fecha_inicio,fecha_vencimiento,estado
             f.write(f"{doc},{item_id},{fecha},{fecha_venc},Activo\n")
         _actualizar_disponibilidad(item_id, "0")
-        print(f">> ¡Préstamo registrado con éxito!")
+        print(f">> Prestamo registrado con exito!")
         print(f"   Usuario  : {nombre_usuario}")
-        print(f"   Artículo : {nombre_articulo}")
+        print(f"   Articulo : {nombre_articulo}")
         print(f"   Devolver antes del: {fecha_venc}")
     else:
         print(">> Prestamo cancelado.")
@@ -183,15 +200,10 @@ def registrar_devolucion():
 
     # Buscar préstamo activo
     doc_usuario = None
-    with open(LOANS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            partes = line.split(",")
-            if len(partes) >= 5 and partes[1] == item_id and partes[4] == "Activo":
-                doc_usuario = partes[0]
-                break
+    for campos in _leer_lineas(LOANS_FILE):
+        if len(campos) >= 5 and campos[1] == item_id and campos[4] == "Activo":
+            doc_usuario = campos[0]
+            break
 
     if not doc_usuario:
         print(f">> Error: No hay un prestamo activo para el articulo '{item_id}'.")
@@ -213,42 +225,39 @@ def registrar_devolucion():
 
     if estado == "Dañado":
         _vetar_usuario(doc_usuario)
-        print(f">> ¡ATENCIoN! El articulo fue devuelto DAÑADO.")
+        print(f">> ATENCION! El articulo fue devuelto DAÑADO.")
         print(f">> El usuario con documento '{doc_usuario}' ha sido VETADO del sistema.")
     else:
-        print(f">> ¡Devolucion procesada exitosamente! Estado recibido: {estado}.")
+        print(f">> Devolucion procesada exitosamente! Estado recibido: {estado}.")
 
 # --- OPCIÓN 5: CONSULTAR ÍTEMS +30 DÍAS (VENTA FORZOSA) ---
 def consultar_venta_forzosa():
     print("\n--- Articulos en Venta Forzosa (mora > 30 dias, Impuesto 23%) ---")
     hoy = datetime.now().date()
     encontrados = 0
-    with open(LOANS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
+
+    # Cargar inventario en memoria para búsqueda rápida
+    inventario = {}
+    for campos in _leer_lineas(ITEMS_FILE):
+        if len(campos) >= 4:
+            val = campos[3] if campos[3].isdigit() else "0"
+            inventario[campos[0]] = {"nombre": campos[1], "valor": int(val)}
+
+    for campos in _leer_lineas(LOANS_FILE):
+        if len(campos) >= 5 and campos[4] == "Activo":
+            try:
+                fecha_venc = datetime.strptime(campos[3], "%Y-%m-%d").date()
+                dias_mora  = (hoy - fecha_venc).days
+                if dias_mora > 30:
+                    encontrados += 1
+                    info_art = inventario.get(campos[1], {"nombre": campos[1], "valor": 0})
+                    valor          = info_art["valor"]
+                    valor_impuesto = round(valor * 1.23)
+                    print(f"  - Doc: {campos[0]} | Articulo: {campos[1]} ({info_art['nombre']}) | Vencio: {campos[3]} | Mora: {dias_mora} dias")
+                    print(f"    Valor: ${valor:,} | Con impuesto 23%: ${valor_impuesto:,}")
+            except ValueError:
                 continue
-            partes = line.split(",")
-            if len(partes) >= 5 and partes[4] == "Activo":
-                try:
-                    fecha_venc = datetime.strptime(partes[3], "%Y-%m-%d").date()
-                    dias_mora  = (hoy - fecha_venc).days
-                    if dias_mora > 30:
-                        encontrados += 1
-                        valor = 0
-                        with open(ITEMS_FILE, "r", encoding="utf-8") as fi:
-                            for li in fi:
-                                li = li.strip()
-                                if not li:
-                                    continue
-                                pi = li.split(",")
-                                if pi[0] == partes[1] and len(pi) >= 4:
-                                    valor = int(pi[3]) if pi[3].isdigit() else 0
-                        valor_impuesto = round(valor * 1.23)
-                        print(f"  - Doc: {partes[0]} | Articulo: {partes[1]} | Venció: {partes[3]} | Mora: {dias_mora} dias")
-                        print(f"    Valor: ${valor:,} | Con impuesto 23%: ${valor_impuesto:,}")
-                except ValueError:
-                    continue
+
     if encontrados == 0:
         print(">> No hay articulos con mas de 30 dias en mora.")
 
@@ -257,21 +266,25 @@ def consultar_prestados():
     print("\n--- Inventario en Prestamo ---")
     hoy = datetime.now().date()
     encontrados = 0
-    with open(LOANS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            partes = line.split(",")
-            if len(partes) >= 5 and partes[4] == "Activo":
-                encontrados += 1
-                try:
-                    fecha_venc   = datetime.strptime(partes[3], "%Y-%m-%d").date()
-                    dias         = (fecha_venc - hoy).days
-                    estado_plazo = f"VENCIDO hace {abs(dias)} días" if dias < 0 else f"Vence en {dias} días"
-                except ValueError:
-                    estado_plazo = "Fecha inválida"
-                print(f"  - Doc: {partes[0]} | Artículo: {partes[1]} | Inicio: {partes[2]} | Vence: {partes[3]} | {estado_plazo}")
+
+    # Cargar inventario en memoria
+    inventario = {}
+    for campos in _leer_lineas(ITEMS_FILE):
+        if len(campos) >= 2:
+            inventario[campos[0]] = campos[1]
+
+    for campos in _leer_lineas(LOANS_FILE):
+        if len(campos) >= 5 and campos[4] == "Activo":
+            encontrados += 1
+            nombre_art = inventario.get(campos[1], campos[1])
+            try:
+                fecha_venc   = datetime.strptime(campos[3], "%Y-%m-%d").date()
+                dias         = (fecha_venc - hoy).days
+                estado_plazo = f"VENCIDO hace {abs(dias)} dias" if dias < 0 else f"Vence en {dias} dias"
+            except ValueError:
+                estado_plazo = "Fecha invalida"
+            print(f"  - Doc: {campos[0]} | Articulo: {campos[1]} ({nombre_art}) | Inicio: {campos[2]} | Vence: {campos[3]} | {estado_plazo}")
+
     if encontrados == 0:
         print(">> No hay articulos prestados actualmente.")
 
@@ -294,70 +307,104 @@ def modulo_admin():
         elif op == "2":
             ver_vetados()
         else:
-            print(">> Opción inválida.")
+            print(">> Opcion invalida.")
     else:
         print(">> Acceso denegado. Credenciales incorrectas.")
 
 def exportar_csv():
-    with open(LOANS_FILE, "r", encoding="utf-8") as f_in, \
-         open("reporte_lizjean.csv", "w", newline="", encoding="utf-8") as f_out:
+    with open("reporte_lizjean.csv", "w", newline="", encoding="utf-8") as f_out:
         writer = csv.writer(f_out)
         writer.writerow(["Usuario", "Item", "Fecha Inicio", "Fecha Vencimiento", "Estado"])
-        for line in f_in:
-            if line.strip():
-                writer.writerow(line.strip().split(","))
-    print(">> ¡CSV exportado exitosamente como 'reporte_lizjean.csv'!")
+        for campos in _leer_lineas(LOANS_FILE):
+            if len(campos) >= 5:
+                writer.writerow(campos[:5])
+    print(">> CSV exportado exitosamente como 'reporte_lizjean.csv'!")
 
 def ver_vetados():
     print("\n--- Usuarios Vetados ---")
     encontrados = 0
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            partes = line.split(",")
-            if len(partes) >= 7 and partes[6] == "1":
-                encontrados += 1
-                print(f"  - Doc: {partes[0]} | Nombre: {partes[1]} {partes[2]} | Correo: {partes[3]}")
+    for campos in _leer_lineas(USERS_FILE):
+        if len(campos) >= 7 and campos[6] == "1":
+            encontrados += 1
+            print(f"  - Doc: {campos[0]} | Nombre: {campos[1]} {campos[2]} | Correo: {campos[3]}")
     if encontrados == 0:
         print(">> No hay usuarios vetados actualmente.")
 
 # --- FUNCIONES AUXILIARES ---
 def _actualizar_disponibilidad(item_id, valor):
-    lineas = []
-    with open(ITEMS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            partes = line.strip().split(",")
-            if partes[0] == item_id and len(partes) >= 5:
-                partes[4] = valor
-            lineas.append(",".join(partes) + "\n")
-    with open(ITEMS_FILE, "w", encoding="utf-8") as f:
-        f.writelines(lineas)
+    """Actualiza el campo disponibilidad (índice 4) de un artículo. Siempre normaliza a 5 campos."""
+    lineas = _leer_lineas(ITEMS_FILE)
+    for campos in lineas:
+        if campos[0] == item_id:
+            # Normalizar a 5 campos exactos (por si había campos extra)
+            campos_norm = campos[:5] if len(campos) >= 5 else campos + ["1"] * (5 - len(campos))
+            campos_norm[4] = valor
+            campos[:] = campos_norm
+    _escribir_lineas(ITEMS_FILE, lineas)
 
 def _actualizar_estado_prestamo(item_id):
-    lineas = []
+    """Cambia el estado del primer préstamo Activo del artículo a Devuelto."""
+    lineas    = _leer_lineas(LOANS_FILE)
     actualizado = False
-    with open(LOANS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            partes = line.strip().split(",")
-            if not actualizado and len(partes) >= 5 and partes[1] == item_id and partes[4] == "Activo":
-                partes[4] = "Devuelto"
-                actualizado = True
-            lineas.append(",".join(partes) + "\n")
-    with open(LOANS_FILE, "w", encoding="utf-8") as f:
-        f.writelines(lineas)
+    for campos in lineas:
+        if not actualizado and len(campos) >= 5 and campos[1] == item_id and campos[4] == "Activo":
+            campos[4]   = "Devuelto"
+            actualizado = True
+    _escribir_lineas(LOANS_FILE, lineas)
 
 def _vetar_usuario(doc):
-    lineas = []
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            partes = line.strip().split(",")
-            if partes[0] == doc and len(partes) >= 7:
-                partes[6] = "1"
-            lineas.append(",".join(partes) + "\n")
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        f.writelines(lineas)
+    """Pone el campo vetado (índice 6) en '1' para el usuario indicado."""
+    lineas = _leer_lineas(USERS_FILE)
+    for campos in lineas:
+        if campos[0] == doc and len(campos) >= 7:
+            campos[6] = "1"
+    _escribir_lineas(USERS_FILE, lineas)
+
+# ---------------------------------------------------------------------------
+# LIMPIEZA DE DATOS EXISTENTES
+# Corrige los archivos .txt que pueden tener registros corruptos o \r\n
+# ---------------------------------------------------------------------------
+def limpiar_datos_existentes():
+    """
+    Normaliza los archivos actuales:
+    - Elimina \r (saltos de Windows)
+    - Fuerza inventario a 5 campos exactos (id,nombre,cat,valor,disponible)
+    - Fuerza prestamos a 5 campos exactos (doc,item_id,f_inicio,f_venc,estado)
+    - Fuerza usuarios a 7 campos exactos (doc,nom,ape,mail,plazo,info,vetado)
+    - Descarta líneas con número incorrecto de campos (con aviso)
+    """
+    # --- INVENTARIO (5 campos) ---
+    lineas_inv = []
+    for campos in _leer_lineas(ITEMS_FILE):
+        if len(campos) == 5:
+            lineas_inv.append(campos)
+        elif len(campos) > 5:
+            # Truncar campos extra
+            print(f"  [Limpieza inventario] Campos extra en '{campos[0]}', normalizando a 5.")
+            lineas_inv.append(campos[:5])
+        else:
+            print(f"  [Limpieza inventario] Linea con {len(campos)} campos descartada: {campos}")
+    _escribir_lineas(ITEMS_FILE, lineas_inv)
+
+    # --- PRÉSTAMOS (5 campos) ---
+    lineas_pre = []
+    for campos in _leer_lineas(LOANS_FILE):
+        if len(campos) == 5:
+            lineas_pre.append(campos)
+        else:
+            print(f"  [Limpieza prestamos] Linea con {len(campos)} campos descartada: {campos}")
+    _escribir_lineas(LOANS_FILE, lineas_pre)
+
+    # --- USUARIOS (7 campos) ---
+    lineas_usr = []
+    for campos in _leer_lineas(USERS_FILE):
+        if len(campos) == 7:
+            lineas_usr.append(campos)
+        else:
+            print(f"  [Limpieza usuarios] Linea con {len(campos)} campos descartada: {campos}")
+    _escribir_lineas(USERS_FILE, lineas_usr)
+
+    print(">> Limpieza de datos completada.\n")
 
 # --- MENÚ PRINCIPAL ---
 def menu():
@@ -366,15 +413,15 @@ def menu():
         print("      LIZJEAN MARKET & LOANS ")
         print("="*35)
         print("1. Registrar Usuario")
-        print("2. Registrar Artículo")
-        print("3. Registrar Préstamo")
-        print("4. Registrar Devolución")
-        print("5. Consultar Ítems con más de 30 días")
-        print("6. Consultar Artículos Prestados")
+        print("2. Registrar Articulo")
+        print("3. Registrar Prestamo")
+        print("4. Registrar Devolucion")
+        print("5. Consultar Items con mas de 30 dias")
+        print("6. Consultar Articulos Prestados")
         print("7. Administrador")
         print("8. Salir")
 
-        op = input("\nSeleccione opción: ").strip()
+        op = input("\nSeleccione opcion: ").strip()
 
         if   op == "1": registrar_usuario()
         elif op == "2": registrar_articulo()
@@ -383,9 +430,11 @@ def menu():
         elif op == "5": consultar_venta_forzosa()
         elif op == "6": consultar_prestados()
         elif op == "7": modulo_admin()
-        elif op == "8": print("\n¡Hasta luego!\n"); break
-        else: print(">> Opción inválida.")
+        elif op == "8": print("\nHasta luego!\n"); break
+        else: print(">> Opcion invalida.")
 
 if __name__ == "__main__":
     inicializar_sistema()
+    print(">> Iniciando limpieza y normalizacion de datos...")
+    limpiar_datos_existentes()
     menu()

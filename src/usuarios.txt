@@ -3,3 +3,5 @@
 165392230923,jean,quinto,jean@gmail,30,trabajo,0
 11121314151617,liz,lizana,zolano@lozano,30,trabajo,0
 1112131415,kenner,lozano,kenner@gmail,30,trabajo,0
+1027956480,jean,quinto,jean@gmail.com,5,trabajo,0
+1234567899,kenner,lozano,kenner@gamil.com,30,trabaja,0
